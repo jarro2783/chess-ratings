@@ -1,3 +1,3 @@
 add_executable(ratings main.cpp)
 
-target_compile_options(ratings -march=native)
+target_compile_options(ratings PRIVATE -march=native)

@@ -1,26 +1,31 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 class MappedFile
 {
+  public:
   MappedFile(const char* file)
   {
-    auto fd = open(file, O_RDONLY);
+    fd_ = open(file, O_RDONLY);
 
-    if (fd == -1)
+    if (fd_ == -1)
     {
       throw "Unable to open input file";
     }
 
-    stat sb;
-    fstat(fd, &sb);
+    struct stat sb;
+    fstat(fd_, &sb);
 
-    mem_ = mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    length_ = sb.st_size;
+
+    mem_ = mmap(nullptr, length_, PROT_READ, MAP_PRIVATE, fd_, 0);
 
     if (mem_ == nullptr)
     {
@@ -28,7 +33,27 @@ class MappedFile
     }
   }
 
+  ~MappedFile()
+  {
+    munmap(mem_, length_);
+    close(fd_);
+  }
+
+  int length()
+  {
+    return length_;
+  }
+
+  const char* memory()
+  {
+    return reinterpret_cast<const char*>(mem_);
+  }
+
+  private:
+
+  int fd_ = 0;
   void* mem_ = nullptr;
+  int length_ = 0;
 };
 
 class RatingsCalc
@@ -44,12 +69,20 @@ class RatingsCalc
   std::vector<int> scores_;
 };
 
-void RatingsCalc::read_games(const char* file)
+void RatingsCalc::read_games(const char* file_name)
 {
+  MappedFile file(file_name);
 }
 
-
-int main(int argc, char** argv)
+int main(int argc, const char** argv)
 {
+  if (argc < 2)
+  {
+    std::cerr << "Provide input file" << std::endl;
+    return 1;
+  }
+
+  RatingsCalc calc;
+  calc.read_games(argv[1]);
   return 0;
 }
