@@ -1,3 +1,4 @@
+awk 'BEGIN {lines = 0} {lines += 1; print $0; if (lines % 3 == 0) print ""}' |
 sed \
   -e 's/\[White "\([^"]*\)\"\]/\1:/' \
   -e 's/\[Black "\([^"]*\)\"\]/\1:/' \
