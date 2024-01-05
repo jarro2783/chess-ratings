@@ -1,5 +1,5 @@
 add_executable(ratings main.cpp ratings.cpp threads/threads.cpp)
 
-target_compile_options(ratings PRIVATE -march=native)
+target_compile_options(ratings PRIVATE -march=native -Wall)
 set_property(TARGET ratings PROPERTY CXX_STANDARD 20)
 target_link_libraries(ratings PRIVATE absl::flat_hash_map)

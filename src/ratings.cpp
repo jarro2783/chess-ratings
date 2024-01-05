@@ -31,7 +31,7 @@ void RatingsCalc::find_ratings()
 {
   Timer timer;
   double K = 50;
-  for (int i = 0; i != 10000; ++i)
+  for (int i = 0; i != 100000; ++i)
   {
     timer.start();
     double e = calculate_errors();
@@ -44,7 +44,7 @@ void RatingsCalc::find_ratings()
       std::cout << "Total error = " << e << std::endl;
     }
 
-    if (e < 1.0)
+    if (e < 0.0001)
     {
       break;
     }
@@ -78,8 +78,12 @@ double RatingsCalc::calculate_errors(int start, int end)
     double rating_inv = 1/rating;
     double score = 0;
     // add the expected score against each opponent
-    for (auto& opponent : player.matchups())
+    //for (auto& opponent : player.matchups())
+    auto first = player.first_opponent();
+    auto last = first + player.opponents();
+    for (int j = first; j != last; ++j)
     {
+      auto& opponent = opponent_info_[j];
       score +=  std::get<1>(opponent) / (1 + (ratings_[std::get<0>(opponent)] * rating_inv));
       //score = std::get<1>(opponent) / (1 + std::pow(10, (ratings_[std::get<0>(opponent)] - rating)/400));
     }
@@ -96,11 +100,14 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
 {
   std::vector<ThreadPool::ThreadJob> jobs;
   int cpus = threads_.pool_size();
+  std::cout << cpus << " jobs" << std::endl;
   for (int i = 0; i != cpus; ++i)
   {
     int size = ratings_.size();
     int begin = size * i / cpus;
     int end = i == cpus - 1 ? size : (size * (i + 1) / cpus);
+
+    std::cout << begin << "--" << end << std::endl;
     jobs.push_back([this, begin, end]() {
       calculate_errors(begin, end);
     });
@@ -208,9 +215,9 @@ void RatingsCalc::read_games(const char* file_name)
 
   ratings_.resize(players_.size(), 1);
   errors_.resize(players_.size(), 0);
-  std::for_each(player_info_.begin(), player_info_.end(), [](auto& info)
+  std::for_each(player_info_.begin(), player_info_.end(), [this](auto& info)
   {
-    info.finalize();
+    info.finalize(opponent_info_);
   });
 
   timer.stop("read_games");

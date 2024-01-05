@@ -21,7 +21,7 @@ class Player
     m.second += score;
   }
 
-  void finalize()
+  void finalize(std::vector<std::tuple<int, int, double>>& global_matchups)
   {
     std::for_each(accum_matchups_.begin(), accum_matchups_.end(), [this](auto& scores)
     {
@@ -33,6 +33,10 @@ class Player
       return std::get<0>(l) < std::get<0>(r);
     });
 
+    opponent_start_ = global_matchups.size();
+    opponents_ = matchups_.size();
+
+    global_matchups.insert(global_matchups.end(), matchups_.begin(), matchups_.end());
   }
 
   const auto& matchups() const
@@ -50,10 +54,23 @@ class Player
     return played_;
   }
 
+  int first_opponent() const
+  {
+    return opponent_start_;
+  }
+
+  int opponents() const
+  {
+    return opponents_;
+  }
+
   private:
   double total_score_ = 0;
   double played_ = 0;
 
   absl::flat_hash_map<int, std::pair<int, double>> accum_matchups_;
   std::vector<std::tuple<int, int, double>> matchups_;
+
+  int opponent_start_ = 0;
+  int opponents_ = 0;
 };

@@ -19,18 +19,22 @@ class RatingsCalc
   void print_ratings(const char* file);
 
   private:
+
+  //<index, played vs, score>
+  using Opponent = std::tuple<int, int, double>;
+
   absl::flat_hash_map<std::string, int> players_;
   absl::flat_hash_map<int, std::string> player_names_;
   std::vector<Player> player_info_;
+  std::vector<Opponent> opponent_info_;
   std::vector<double> errors_;
   int next_player_ = 0;
   int games_ = 0;
 
   std::vector<double> ratings_;
+
   ThreadPool threads_;
-
   std::vector<ThreadPool::ThreadJob> error_jobs_;
-
   ThreadPoolWaiter waiter_;
 
   void process_line(const std::string& line);
