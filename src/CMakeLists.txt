@@ -1,4 +1,4 @@
-add_executable(ratings main.cpp ratings.cpp)
+add_executable(ratings main.cpp ratings.cpp threads/threads.cpp)
 
 target_compile_options(ratings PRIVATE -march=native)
 set_property(TARGET ratings PROPERTY CXX_STANDARD 20)

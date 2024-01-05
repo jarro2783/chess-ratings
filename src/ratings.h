@@ -5,11 +5,13 @@
 #include <absl/container/flat_hash_map.h>
 
 #include "player.h"
+#include "threads/threads.h"
+#include "threads/waiter.h"
 
 class RatingsCalc
 {
   public:
-  RatingsCalc() = default;
+  RatingsCalc();
 
   void read_games(const char* file);
   void find_ratings();
@@ -25,10 +27,18 @@ class RatingsCalc
   int games_ = 0;
 
   std::vector<double> ratings_;
+  ThreadPool threads_;
+
+  std::vector<ThreadPool::ThreadJob> error_jobs_;
+
+  ThreadPoolWaiter waiter_;
 
   void process_line(const std::string& line);
   double calculate_errors();
+  double calculate_errors(int start, int end);
   void adjust_ratings(double K);
+  std::vector<ThreadPool::ThreadJob> create_error_calculation();
+  void init_jobs();
 
   int insert_player(std::string player, double score)
   {

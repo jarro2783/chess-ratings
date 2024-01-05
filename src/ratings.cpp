@@ -2,6 +2,8 @@
 #include "ratings.h"
 #include "timer.h"
 
+#include "threads/threads.h"
+
 #include <fstream>
 #include <ranges>
 
@@ -15,9 +17,9 @@ double next_k(double previous, int iterations)
     return previous / 2;
   }
 
-  if (iterations % 23 == 0)
+  if (iterations % 21 == 0)
   {
-    return 31;
+    return 33;
   }
 
   return 1.6;
@@ -33,7 +35,7 @@ void RatingsCalc::find_ratings()
   {
     timer.start();
     double e = calculate_errors();
-    if (i == 0)
+    if (i %50 == 0)
     {
       timer.stop("calculate_errors");
     }
@@ -48,9 +50,9 @@ void RatingsCalc::find_ratings()
     }
 
     K = next_k(K, i);
-    timer.start();
+    //timer.start();
     adjust_ratings(K);
-    timer.stop("adjust_ratings");
+    //timer.stop("adjust_ratings");
   }
 
   std::cout << "Done ratings" << std::endl;
@@ -59,8 +61,17 @@ void RatingsCalc::find_ratings()
 
 double RatingsCalc::calculate_errors()
 {
+  //return calculate_errors(0, ratings_.size());
+  waiter_.run_and_wait(threads_);
+
+  auto abs = std::views::transform(errors_, [](auto e) { return std::abs(e); });
+  return std::accumulate(abs.begin(), abs.end(), 0);
+}
+
+double RatingsCalc::calculate_errors(int start, int end)
+{
   double total = 0;
-  for (auto p : std::views::iota(0u, player_info_.size()))
+  for (auto p : std::views::iota(start, end))
   {
     auto& player = player_info_[p];
     auto rating = ratings_[p];
@@ -79,6 +90,23 @@ double RatingsCalc::calculate_errors()
   }
 
   return total;
+}
+
+std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
+{
+  std::vector<ThreadPool::ThreadJob> jobs;
+  int cpus = threads_.pool_size();
+  for (int i = 0; i != cpus; ++i)
+  {
+    int size = ratings_.size();
+    int begin = size * i / cpus;
+    int end = i == cpus - 1 ? size : (size * (i + 1) / cpus);
+    jobs.push_back([this, begin, end]() {
+      calculate_errors(begin, end);
+    });
+  }
+
+  return jobs;
 }
 
 void RatingsCalc::adjust_ratings(double K)
@@ -210,6 +238,8 @@ void RatingsCalc::read_games(const char* file_name)
     ++p_num;
   }
   #endif
+
+  init_jobs();
 }
 
 void RatingsCalc::print_ratings(const char* file)
@@ -233,3 +263,10 @@ void RatingsCalc::print_ratings(const char* file)
   }
 }
 
+RatingsCalc::RatingsCalc() {}
+
+void RatingsCalc::init_jobs()
+{
+  error_jobs_ = create_error_calculation();
+  waiter_.set_jobs(error_jobs_);
+}
