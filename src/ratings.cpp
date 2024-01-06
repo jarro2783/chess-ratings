@@ -10,19 +10,19 @@
 namespace
 {
 
-double next_k(double previous, int iterations)
+double next_k(double previous, double error, int iteration)
 {
-  if (previous > 2 && iterations < 10)
+  if (error < 1)
   {
-    return previous / 2;
+    return 1.1;
   }
 
-  if (iterations % 21 == 0)
+  if (iteration % 33 == 0)
   {
-    return 33;
+    return 21;
   }
 
-  return 1.6;
+  return 1.618;
 }
 
 }
@@ -31,31 +31,33 @@ void RatingsCalc::find_ratings()
 {
   Timer timer;
   double K = 50;
-  for (int i = 0; i != 100000; ++i)
+  int i;
+  for (i = 0; i != 100000; ++i)
   {
     timer.start();
     double e = calculate_errors();
     if (i %50 == 0)
     {
       timer.stop("calculate_errors");
+      std::cout << "K = " << K << std::endl;
     }
     if (i % 100 == 0)
     {
       std::cout << "Total error = " << e << std::endl;
     }
 
-    if (e < 0.0001)
+    if (e < 0.1)
     {
       break;
     }
 
-    K = next_k(K, i);
     //timer.start();
     adjust_ratings(K);
+    K = next_k(K, e, i);
     //timer.stop("adjust_ratings");
   }
 
-  std::cout << "Done ratings" << std::endl;
+  std::cout << "Done ratings in " << i << " iterations" << std::endl;
 
 }
 
@@ -64,18 +66,17 @@ double RatingsCalc::calculate_errors()
   //return calculate_errors(0, ratings_.size());
   waiter_.run_and_wait(threads_);
 
-  auto abs = std::views::transform(errors_, [](auto e) { return std::abs(e); });
-  return std::accumulate(abs.begin(), abs.end(), 0);
+  auto abs = std::views::transform(errors_, [](auto e) { return std::fabs(e); });
+  return std::accumulate(abs.begin(), abs.end(), 0.0);
 }
 
-double RatingsCalc::calculate_errors(int start, int end)
+void RatingsCalc::calculate_errors(int start, int end)
 {
-  double total = 0;
   for (auto p : std::views::iota(start, end))
   {
     auto& player = player_info_[p];
     auto rating = ratings_[p];
-    double rating_inv = 1/rating;
+    //double rating_inv = 1/rating;
     double score = 0;
     // add the expected score against each opponent
     //for (auto& opponent : player.matchups())
@@ -84,16 +85,13 @@ double RatingsCalc::calculate_errors(int start, int end)
     for (int j = first; j != last; ++j)
     {
       auto& opponent = opponent_info_[j];
-      score +=  std::get<1>(opponent) / (1 + (ratings_[std::get<0>(opponent)] * rating_inv));
+      score +=  std::get<1>(opponent) * rating / (rating + ratings_[std::get<0>(opponent)]);
       //score = std::get<1>(opponent) / (1 + std::pow(10, (ratings_[std::get<0>(opponent)] - rating)/400));
     }
 
     double e = player.score() - score;
-    total += std::abs(e);
     errors_[p] = e;
   }
-
-  return total;
 }
 
 std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
@@ -251,11 +249,11 @@ void RatingsCalc::read_games(const char* file_name)
 
 void RatingsCalc::print_ratings(const char* file)
 {
-  std::vector<std::tuple<double, std::string>> ratings;
+  std::vector<std::tuple<double, double, std::string>> ratings;
 
   for (auto p : std::views::iota(0u, ratings_.size()))
   {
-    ratings.emplace_back(ratings_[p], player_names_[p]);
+    ratings.emplace_back(ratings_[p], errors_[p], player_names_[p]);
   }
 
   std::sort(ratings.begin(), ratings.end(), [](const auto& a, const auto& b) {
@@ -264,9 +262,9 @@ void RatingsCalc::print_ratings(const char* file)
 
   std::ofstream out(file);
 
-  for (const auto& [r, n] : ratings)
+  for (const auto& [r, e, n] : ratings)
   {
-    out << n << ": " << std::log10(r) * 400 + 1500 << std::endl;
+    out << n << ": " << std::log10(r) * 400 + 1500 << ", " << e <<  std::endl;
   }
 }
 

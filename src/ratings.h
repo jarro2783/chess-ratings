@@ -39,7 +39,7 @@ class RatingsCalc
 
   void process_line(const std::string& line);
   double calculate_errors();
-  double calculate_errors(int start, int end);
+  void calculate_errors(int start, int end);
   void adjust_ratings(double K);
   std::vector<ThreadPool::ThreadJob> create_error_calculation();
   void init_jobs();
@@ -58,7 +58,7 @@ class RatingsCalc
     return inserted.first->second;
   }
 
-  void add_score(int player, double score)
+  void add_score(size_t player, double score)
   {
     if (player_info_.size() <= player)
     {
