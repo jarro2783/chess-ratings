@@ -30,7 +30,6 @@ void ThreadPool::thread_loop()
 {
   while (true)
   {
-    bool has_job = false;
     std::decay_t<decltype(jobs_.front())> job;
 
     {

@@ -17,12 +17,12 @@ double next_k(double previous, double error, int iteration)
     return 1.1;
   }
 
-  if (iteration % 33 == 0)
+  if (iteration % 21 == 0)
   {
-    return 21;
+    return 33;
   }
 
-  return 1.618;
+  return 1.6;
 }
 
 }
@@ -96,19 +96,46 @@ void RatingsCalc::calculate_errors(int start, int end)
 
 std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
 {
+  //add up the pairings to split by pairings instead of players
+  std::vector<int> accum_games;
+  int games = 0;
+
+  for (size_t i = 0; i != player_info_.size(); ++i)
+  {
+    games += player_info_[i].played();
+    accum_games.push_back(games);
+  }
+
+  auto total_games = accum_games.back();
+
   std::vector<ThreadPool::ThreadJob> jobs;
   int cpus = threads_.pool_size();
   std::cout << cpus << " jobs" << std::endl;
+
+  auto iter = accum_games.begin();
+  auto end_iter = accum_games.end();
+
+  double interval = static_cast<double>(total_games) / cpus;
+  int start_index = 0;
+
   for (int i = 0; i != cpus; ++i)
   {
-    int size = ratings_.size();
-    int begin = size * i / cpus;
-    int end = i == cpus - 1 ? size : (size * (i + 1) / cpus);
+    int next_index = start_index + interval;
+
+    auto job_end = std::find_if(iter, end_iter, [next_index](auto v) {
+      return v > next_index;
+    });
+
+    int begin = iter - accum_games.begin();
+    int end = job_end - accum_games.begin();
 
     std::cout << begin << "--" << end << std::endl;
     jobs.push_back([this, begin, end]() {
       calculate_errors(begin, end);
     });
+
+    iter = job_end;
+    start_index = next_index;
   }
 
   return jobs;
