@@ -21,11 +21,11 @@ class Player
     m.second += score;
   }
 
-  void finalize(std::vector<std::tuple<int, int, double>>& global_matchups)
+  void finalize(std::vector<std::tuple<int, int>>& global_matchups)
   {
     std::for_each(accum_matchups_.begin(), accum_matchups_.end(), [this](auto& scores)
     {
-      matchups_.emplace_back(scores.first, scores.second.first, scores.second.second);
+      matchups_.emplace_back(scores.first, scores.second.first);
     });
 
     std::sort(matchups_.begin(), matchups_.end(), [](auto& l, auto& r)
@@ -69,7 +69,7 @@ class Player
   double played_ = 0;
 
   absl::flat_hash_map<int, std::pair<int, double>> accum_matchups_;
-  std::vector<std::tuple<int, int, double>> matchups_;
+  std::vector<std::tuple<int, int>> matchups_;
 
   int opponent_start_ = 0;
   int opponents_ = 0;

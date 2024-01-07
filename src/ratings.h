@@ -21,7 +21,7 @@ class RatingsCalc
   private:
 
   //<index, played vs, score>
-  using Opponent = std::tuple<int, int, double>;
+  using Opponent = std::tuple<int, int>;
 
   absl::flat_hash_map<std::string, int> players_;
   absl::flat_hash_map<int, std::string> player_names_;

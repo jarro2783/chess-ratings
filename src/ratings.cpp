@@ -79,14 +79,12 @@ void RatingsCalc::calculate_errors(int start, int end)
     //double rating_inv = 1/rating;
     double score = 0;
     // add the expected score against each opponent
-    //for (auto& opponent : player.matchups())
     auto first = player.first_opponent();
     auto last = first + player.opponents();
     for (int j = first; j != last; ++j)
     {
-      auto& opponent = opponent_info_[j];
+      const auto& opponent = opponent_info_[j];
       score +=  std::get<1>(opponent) * rating / (rating + ratings_[std::get<0>(opponent)]);
-      //score = std::get<1>(opponent) / (1 + std::pow(10, (ratings_[std::get<0>(opponent)] - rating)/400));
     }
 
     double e = player.score() - score;
