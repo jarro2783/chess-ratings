@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(ratings)
+project(ratings LANGUAGES CXX)
 
 find_package(absl REQUIRED)
 

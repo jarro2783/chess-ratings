@@ -3,6 +3,7 @@
 #include "timer.h"
 
 #include "threads/threads.h"
+#include "ratings_cuda.h"
 
 #include <fstream>
 #include <ranges>
@@ -29,6 +30,12 @@ double next_k(double previous, double error, int iteration)
 
 void RatingsCalc::find_ratings()
 {
+  RatingsCuda cuda(player_info_, opponent_info_);
+  cuda.find_ratings();
+  ratings_ = cuda.ratings();
+  errors_ = cuda.errors();
+  return;
+
   Timer timer;
   double K = 50;
   int i;
