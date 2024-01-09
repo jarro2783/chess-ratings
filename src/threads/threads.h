@@ -15,7 +15,7 @@ class ThreadPool
   ThreadPool();
   ~ThreadPool();
 
-  void enqueue(std::reference_wrapper<ThreadJob> f);
+  void enqueue(ThreadJob f);
   bool busy();
   int pool_size()
   {
@@ -26,7 +26,7 @@ class ThreadPool
   std::mutex mutex_;
   std::condition_variable cv_;
   std::vector<std::thread> threads_;
-  std::queue<std::reference_wrapper<ThreadJob>> jobs_;
+  std::queue<ThreadJob> jobs_;
 
   bool terminate_ = false;
 

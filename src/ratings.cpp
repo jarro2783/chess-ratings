@@ -76,7 +76,7 @@ double RatingsCalc::calculate_errors()
   waiter_.run_and_wait(threads_);
 
   auto abs = std::views::transform(errors_, [](auto e) { return std::fabs(e); });
-  return std::accumulate(abs.begin(), abs.end(), 0.0d);
+  return std::accumulate(abs.begin(), abs.end(), 0.0);
 }
 
 void RatingsCalc::calculate_errors(int start, int end)
