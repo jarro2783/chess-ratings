@@ -30,7 +30,7 @@ void ThreadPool::thread_loop()
 {
   while (true)
   {
-    std::decay_t<decltype(jobs_.front())> job;
+    std::decay_t<decltype(jobs_.front().get())> job;
 
     {
       std::unique_lock lock(mutex_);
@@ -47,7 +47,7 @@ void ThreadPool::thread_loop()
   }
 }
 
-void ThreadPool::enqueue(ThreadJob f)
+void ThreadPool::enqueue(std::reference_wrapper<ThreadJob> f)
 {
   {
     std::unique_lock lock(mutex_);

@@ -1,6 +1,7 @@
 #include "threads.h"
 
 #include <atomic>
+#include <ranges>
 #include <vector>
 
 class ThreadPoolWaiter
@@ -14,12 +15,7 @@ class ThreadPoolWaiter
     {
       auto runner = [this, job]() {
         job();
-        {
-          std::unique_lock lock(mutex_);
-          running_ -= 1;
-        }
-
-        cv_.notify_one();
+        running_ -= 1;
       };
 
       wrapped_jobs_.push_back(runner);
@@ -30,20 +26,19 @@ class ThreadPoolWaiter
   {
     running_ = wrapped_jobs_.size();
 
-    for (auto& job : wrapped_jobs_)
+    for (auto& job : std::views::drop(wrapped_jobs_, 1))
     {
-      pool.enqueue(job);
+      pool.enqueue(std::ref(job));
     }
 
-    std::unique_lock lock(mutex_);
-    cv_.wait(lock, [this]() {
-      return running_ == 0;
-    });
+    wrapped_jobs_.front()();
+
+    while (running_ != 0)
+    {
+    }
   }
 
   private:
   std::vector<ThreadPool::ThreadJob> wrapped_jobs_;
-  std::condition_variable cv_;
-  std::mutex mutex_;
   std::atomic<int> running_;
 };
