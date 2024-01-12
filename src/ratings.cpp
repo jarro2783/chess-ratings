@@ -148,7 +148,7 @@ void RatingsCalc::adjust_ratings(double K)
   }
 }
 
-void RatingsCalc::process_line(const std::string& line)
+void RatingsCalc::process_line(std::string_view line)
 {
   std::string_view white;
   std::string_view black;
@@ -176,7 +176,7 @@ void RatingsCalc::process_line(const std::string& line)
   
   if (i != 3)
   {
-    throw "Line: '" + line + "' malformed";
+    throw "Line: '" + std::string(line) + "' malformed";
   }
 
   char outcome = result[0];
@@ -188,7 +188,7 @@ void RatingsCalc::process_line(const std::string& line)
     case 'd':
     break;
     default:
-    throw "Invalid result for " + line;
+    throw "Invalid result for " + std::string(line);
   }
 
   auto w_id = insert_player(std::string(white), outcome == 'd' ? 0.5 : outcome == 'w' ? 1 : 0);
@@ -214,18 +214,20 @@ void RatingsCalc::read_games(const char* file_name)
   int i = 0;
 
   std::string line;
+  const char* line_begin = memory;
   while (i != length)
   {
+    if (i % (1024 * 1024) == 0)
+    {
+      std::cout << "." << std::flush;
+    }
+
     char current = memory[i];
 
     if (current == '\n')
     {
-      process_line(line);
-      line.clear();
-    }
-    else
-    {
-      line += current;
+      process_line(std::string_view(line_begin, &memory[i]));
+      line_begin = &memory[i];
     }
 
     ++i;

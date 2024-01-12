@@ -37,7 +37,7 @@ class RatingsCalc
   std::vector<ThreadPool::ThreadJob> error_jobs_;
   ThreadPoolWaiter waiter_;
 
-  void process_line(const std::string& line);
+  void process_line(std::string_view line);
   double calculate_errors();
   void calculate_errors(int start, int end);
   void adjust_ratings(double K);
