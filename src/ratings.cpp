@@ -114,11 +114,11 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
   auto end_iter = accum_games.end();
 
   double interval = static_cast<double>(total_games) / cpus;
-  int start_index = 0;
+  double start_index = 0;
 
   for (int i = 0; i != cpus; ++i)
   {
-    int next_index = start_index + interval;
+    double next_index = start_index + interval;
 
     auto job_end = std::find_if(iter, end_iter, [next_index](auto v) {
       return v > next_index;
