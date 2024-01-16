@@ -10,7 +10,7 @@
 namespace
 {
 
-float next_k(float previous, float error, int iteration)
+double next_k(double previous, double error, int iteration)
 {
   if (error < 1)
   {
@@ -34,7 +34,7 @@ void RatingsCalc::find_ratings()
   for (i = 0; i != 100000; ++i)
   {
     timer.start();
-    float e = calculate_errors();
+    double e = calculate_errors();
     if (i %50 == 0)
     {
       timer.stop("calculate_errors");
@@ -58,7 +58,7 @@ void RatingsCalc::find_ratings()
   std::cout << "Done ratings in " << i << " iterations" << std::endl;
 }
 
-void RatingsCalc::adjust_ratings_driver(int i, float e)
+void RatingsCalc::adjust_ratings_driver(int i, double e)
 {
   adjust_state_.iteration = i;
   adjust_state_.K = next_k(adjust_state_.K, e, i);
@@ -77,17 +77,21 @@ double RatingsCalc::calculate_errors()
 void RatingsCalc::calculate_errors(size_t start, size_t end)
 {
   for (auto p : std::views::iota(start, end))
+  [[likely]]
   {
     auto& player = player_info_[p];
     auto rating = ratings_[p];
     double score = 0;
     // add the expected score against each opponent
-    auto first = player.first_opponent();
-    auto last = first + player.opponents();
-    for (int j = first; j != last; ++j)
+    auto first = game_indexes_[p];
+    auto last = game_indexes_[p+1];
+    for (size_t j = first; j != last; ++j)
+    [[likely]]
     {
-      const auto& opponent = opponent_info_[j];
-      score +=  std::get<1>(opponent) * rating / (rating + ratings_[std::get<0>(opponent)]);
+      //const auto& opponent = opponent_info_[j];
+      auto denom = (rating + ratings_[opp_index_[j]]);
+      auto numerator = opp_played_[j] * rating;
+      score += numerator / denom;
     }
 
     double e = player.score() - score;
@@ -99,8 +103,8 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_adjust_calculation()
 {
   std::vector<ThreadPool::ThreadJob> jobs;
   auto cpus = threads_.pool_size();
-  float players = player_info_.size();
-  float ratio = players / cpus;
+  double players = player_info_.size();
+  double ratio = players / cpus;
 
   size_t begin = 0;
   for (int i = 1; i != cpus+1; ++i)
@@ -137,11 +141,11 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
   auto iter = accum_games.begin();
   auto end_iter = accum_games.end();
 
-  double interval = static_cast<float>(total_games) / cpus;
+  double interval = static_cast<double>(total_games) / cpus;
 
   for (int i = 0; i != cpus; ++i)
   {
-    float next_index = interval * (i+1);
+    double next_index = interval * (i+1);
 
     auto job_end = std::find_if(iter, end_iter, [next_index](auto v) {
       return v > next_index;
@@ -262,10 +266,19 @@ void RatingsCalc::read_games(const char* file_name)
 
   ratings_.resize(players_.size(), 1);
   errors_.resize(players_.size(), 0);
+  game_indexes_.push_back(0);
   std::for_each(player_info_.begin(), player_info_.end(), [this](auto& info)
   {
     info.finalize(opponent_info_);
     played_.push_back(info.played());
+    game_indexes_.push_back(info.first_opponent() + info.opponents());
+  });
+
+  std::ranges::for_each(opponent_info_, [this](auto& info)
+  {
+    auto [index, played] = info;
+    opp_index_.push_back(index);
+    opp_played_.push_back(played);
   });
 
   timer.stop("read_games");
@@ -299,7 +312,7 @@ void RatingsCalc::read_games(const char* file_name)
 
 void RatingsCalc::print_ratings(const char* file)
 {
-  std::vector<std::tuple<float, float, std::string>> ratings;
+  std::vector<std::tuple<double, double, std::string>> ratings;
 
   for (auto p : std::views::iota(0u, ratings_.size()))
   {

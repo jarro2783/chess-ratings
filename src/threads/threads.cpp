@@ -3,7 +3,7 @@
 
 ThreadPool::ThreadPool()
 {
-  int cpus = std::thread::hardware_concurrency();
+  int cpus = std::thread::hardware_concurrency()/2;
   std::cout << "Starting " << cpus << " threads" << std::endl;
   for (int i = 0; i != cpus; ++i)
   {

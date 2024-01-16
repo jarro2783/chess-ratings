@@ -29,6 +29,9 @@ class RatingsCalc
   absl::flat_hash_map<int, std::string_view> player_names_;
   std::vector<Player> player_info_;
   std::vector<Opponent> opponent_info_;
+  std::vector<size_t> game_indexes_;
+  std::vector<size_t> opp_index_;
+  std::vector<size_t> opp_played_;
   std::vector<double> errors_;
   std::vector<size_t> played_;
   int next_player_ = 0;
@@ -44,14 +47,14 @@ class RatingsCalc
 
   void process_line(std::string_view line);
   double calculate_errors();
-  void adjust_ratings_driver(int i, float e);
+  void adjust_ratings_driver(int i, double e);
   void calculate_errors(size_t start, size_t end);
   void adjust_ratings(size_t start, size_t end);
   std::vector<ThreadPool::ThreadJob> create_error_calculation();
   std::vector<ThreadPool::ThreadJob> create_adjust_calculation();
   void init_jobs();
 
-  int insert_player(std::string_view player, float score)
+  int insert_player(std::string_view player, double score)
   {
     auto inserted = players_.try_emplace(player, next_player_);
     if (inserted.second)
@@ -65,7 +68,7 @@ class RatingsCalc
     return inserted.first->second;
   }
 
-  void add_score(size_t player, float score)
+  void add_score(size_t player, double score)
   {
     if (player_info_.size() <= player)
     {
@@ -75,7 +78,7 @@ class RatingsCalc
     player_info_[player].add_score(score);
   }
 
-  void add_match(int white, int black, float score)
+  void add_match(int white, int black, double score)
   {
     auto& w_info = player_info_[white];
     auto& b_info = player_info_[black];
@@ -88,7 +91,7 @@ class RatingsCalc
 
   struct {
     int iteration = 0;
-    float K = 1.6; 
+    double K = 1.6; 
   } adjust_state_;
 };
 
