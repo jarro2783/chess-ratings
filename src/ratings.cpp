@@ -10,7 +10,7 @@
 namespace
 {
 
-double next_k(double previous, double error, int iteration)
+float next_k(float previous, float error, int iteration)
 {
   if (error < 1)
   {
@@ -30,16 +30,15 @@ double next_k(double previous, double error, int iteration)
 void RatingsCalc::find_ratings()
 {
   Timer timer;
-  double K = 50;
   int i;
   for (i = 0; i != 100000; ++i)
   {
     timer.start();
-    double e = calculate_errors();
+    float e = calculate_errors();
     if (i %50 == 0)
     {
       timer.stop("calculate_errors");
-      std::cout << "K = " << K << std::endl;
+      std::cout << "K = " << adjust_state_.K << std::endl;
     }
     if (i % 100 == 0)
     {
@@ -52,13 +51,18 @@ void RatingsCalc::find_ratings()
     }
 
     //timer.start();
-    adjust_ratings(K);
-    K = next_k(K, e, i);
+    adjust_ratings_driver(i, e);
     //timer.stop("adjust_ratings");
   }
 
   std::cout << "Done ratings in " << i << " iterations" << std::endl;
+}
 
+void RatingsCalc::adjust_ratings_driver(int i, float e)
+{
+  adjust_state_.iteration = i;
+  adjust_state_.K = next_k(adjust_state_.K, e, i);
+  adjust_waiter_.run_and_wait(threads_);
 }
 
 double RatingsCalc::calculate_errors()
@@ -76,7 +80,6 @@ void RatingsCalc::calculate_errors(int start, int end)
   {
     auto& player = player_info_[p];
     auto rating = ratings_[p];
-    //double rating_inv = 1/rating;
     double score = 0;
     // add the expected score against each opponent
     auto first = player.first_opponent();
@@ -90,6 +93,27 @@ void RatingsCalc::calculate_errors(int start, int end)
     double e = player.score() - score;
     errors_[p] = e;
   }
+}
+
+std::vector<ThreadPool::ThreadJob> RatingsCalc::create_adjust_calculation()
+{
+  std::vector<ThreadPool::ThreadJob> jobs;
+  auto cpus = threads_.pool_size();
+  float players = player_info_.size();
+  float ratio = players / cpus;
+
+  size_t begin = 0;
+  for (int i = 1; i != cpus+1; ++i)
+  {
+    size_t end = ratio * i;
+    std::cout << "Adjust ratings: " << begin << "--" << end << std::endl;
+    jobs.push_back([begin, end, this](){
+      adjust_ratings(begin, end);
+    });
+    begin = end;
+  }
+
+  return jobs;
 }
 
 std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
@@ -113,12 +137,11 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
   auto iter = accum_games.begin();
   auto end_iter = accum_games.end();
 
-  double interval = static_cast<double>(total_games) / cpus;
-  double start_index = 0;
+  double interval = static_cast<float>(total_games) / cpus;
 
   for (int i = 0; i != cpus; ++i)
   {
-    double next_index = start_index + interval;
+    float next_index = interval * (i+1);
 
     auto job_end = std::find_if(iter, end_iter, [next_index](auto v) {
       return v > next_index;
@@ -133,17 +156,18 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
     });
 
     iter = job_end;
-    start_index = next_index;
   }
 
   return jobs;
 }
 
-void RatingsCalc::adjust_ratings(double K)
+void RatingsCalc::adjust_ratings(size_t start, size_t end)
 {
-  for (auto p : std::views::iota(0u, player_info_.size()))
+  auto K = adjust_state_.K;
+
+  for (auto p : std::views::iota(start, end))
   {
-    auto e = errors_[p] / player_info_[p].played();
+    double e = errors_[p] / played_[p];
     ratings_[p] = ratings_[p] * std::pow(10, K * e);
   }
 }
@@ -191,8 +215,8 @@ void RatingsCalc::process_line(std::string_view line)
     throw "Invalid result for " + std::string(line);
   }
 
-  auto w_id = insert_player(std::string(white), outcome == 'd' ? 0.5 : outcome == 'w' ? 1 : 0);
-  auto b_id = insert_player(std::string(black), outcome == 'd' ? 0.5 : outcome == 'b' ? 1 : 0);
+  auto w_id = insert_player(white, outcome == 'd' ? 0.5 : outcome == 'w' ? 1 : 0);
+  auto b_id = insert_player(black, outcome == 'd' ? 0.5 : outcome == 'b' ? 1 : 0);
 
   add_match(w_id, b_id, outcome == 'd' ? 0.5 : outcome == 'w' ? 1 : -1);
 
@@ -204,38 +228,36 @@ void RatingsCalc::read_games(const char* file_name)
   Timer timer;
   timer.start();
 
-  MappedFile file(file_name);
+  file = std::make_unique<MappedFile>(file_name);
 
-  auto length = file.length();
-  auto* memory = file.memory();
+  auto length = file->length();
+  auto* memory = file->memory();
 
   std::cout << "File is " << length << " bytes" << std::endl;
 
   int i = 0;
 
-  std::string line;
   const char* line_begin = memory;
-  while (i != length)
+  while (i < length)
   {
     if (i % (1024 * 1024) == 0)
     {
       std::cout << "." << std::flush;
     }
 
-    char current = memory[i];
 
-    if (current == '\n')
+    if (memory[i] == '\n')
     {
       process_line(std::string_view(line_begin, &memory[i]));
-      line_begin = &memory[i];
+      line_begin = &memory[i+1];
     }
 
     ++i;
   }
 
-  if (!line.empty())
+  if (line_begin < &memory[i])
   {
-    process_line(line);
+    process_line(std::string_view(line_begin, &memory[i]));
   }
 
   ratings_.resize(players_.size(), 1);
@@ -243,6 +265,7 @@ void RatingsCalc::read_games(const char* file_name)
   std::for_each(player_info_.begin(), player_info_.end(), [this](auto& info)
   {
     info.finalize(opponent_info_);
+    played_.push_back(info.played());
   });
 
   timer.stop("read_games");
@@ -276,7 +299,7 @@ void RatingsCalc::read_games(const char* file_name)
 
 void RatingsCalc::print_ratings(const char* file)
 {
-  std::vector<std::tuple<double, double, std::string>> ratings;
+  std::vector<std::tuple<float, float, std::string>> ratings;
 
   for (auto p : std::views::iota(0u, ratings_.size()))
   {
@@ -301,4 +324,7 @@ void RatingsCalc::init_jobs()
 {
   error_jobs_ = create_error_calculation();
   waiter_.set_jobs(error_jobs_);
+
+  adjust_jobs_ = create_adjust_calculation();
+  adjust_waiter_.set_jobs(adjust_jobs_);
 }

@@ -8,6 +8,8 @@
 #include "threads/threads.h"
 #include "threads/waiter.h"
 
+class MappedFile;
+
 class RatingsCalc
 {
   public:
@@ -21,13 +23,14 @@ class RatingsCalc
   private:
 
   //<index, played vs, score>
-  using Opponent = std::tuple<int, int>;
+  using Opponent = std::tuple<int, double>;
 
-  absl::flat_hash_map<std::string, int> players_;
-  absl::flat_hash_map<int, std::string> player_names_;
+  absl::flat_hash_map<std::string_view, int> players_;
+  absl::flat_hash_map<int, std::string_view> player_names_;
   std::vector<Player> player_info_;
   std::vector<Opponent> opponent_info_;
   std::vector<double> errors_;
+  std::vector<double> played_;
   int next_player_ = 0;
   int games_ = 0;
 
@@ -35,21 +38,25 @@ class RatingsCalc
 
   ThreadPool threads_;
   std::vector<ThreadPool::ThreadJob> error_jobs_;
+  std::vector<ThreadPool::ThreadJob> adjust_jobs_;
   ThreadPoolWaiter waiter_;
+  ThreadPoolWaiter adjust_waiter_;
 
   void process_line(std::string_view line);
   double calculate_errors();
+  void adjust_ratings_driver(int i, float e);
   void calculate_errors(int start, int end);
-  void adjust_ratings(double K);
+  void adjust_ratings(size_t start, size_t end);
   std::vector<ThreadPool::ThreadJob> create_error_calculation();
+  std::vector<ThreadPool::ThreadJob> create_adjust_calculation();
   void init_jobs();
 
-  int insert_player(std::string player, double score)
+  int insert_player(std::string_view player, float score)
   {
-    auto inserted = players_.emplace(player, next_player_);
+    auto inserted = players_.try_emplace(player, next_player_);
     if (inserted.second)
     {
-      player_names_.emplace(next_player_, std::move(player));
+      player_names_.emplace(next_player_, player);
       ++next_player_;
     }
     
@@ -58,7 +65,7 @@ class RatingsCalc
     return inserted.first->second;
   }
 
-  void add_score(size_t player, double score)
+  void add_score(size_t player, float score)
   {
     if (player_info_.size() <= player)
     {
@@ -68,7 +75,7 @@ class RatingsCalc
     player_info_[player].add_score(score);
   }
 
-  void add_match(int white, int black, double score)
+  void add_match(int white, int black, float score)
   {
     auto& w_info = player_info_[white];
     auto& b_info = player_info_[black];
@@ -76,6 +83,13 @@ class RatingsCalc
     w_info.add_matchup(black, score >= 0 ? score : 0);
     b_info.add_matchup(white, score == 0.5 ? 0.5 : score < 0 ? -score : 0);
   }
+
+  std::unique_ptr<MappedFile> file;
+
+  struct {
+    int iteration = 0;
+    float K = 1.6; 
+  } adjust_state_;
 };
 
 

@@ -10,6 +10,8 @@
 #include "ratings.h"
 #include "timer.h"
 
+#include "cxxopts.hpp"
+
 int main(int argc, const char** argv)
 {
   if (argc < 2)
@@ -20,6 +22,16 @@ int main(int argc, const char** argv)
 
   try
   {
+    cxxopts::Options options(argv[0], "Chess ratings calculator");
+    options.add_options()
+      ("gpu", "Use GPU calculation", cxxopts::value<bool>())
+      ("w,wadv", "Set white advantage", cxxopts::value<double>())
+      ("games", "Games file to read from", cxxopts::value<std::string>())
+      ;
+
+    options.parse_positional({"games"});
+    auto parsed = options.parse(argc, argv);
+
     RatingsCalc calc;
     calc.read_games(argv[1]);
 

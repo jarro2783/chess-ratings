@@ -21,7 +21,7 @@ class Player
     m.second += score;
   }
 
-  void finalize(std::vector<std::tuple<int, int>>& global_matchups)
+  void finalize(std::vector<std::tuple<int, double>>& global_matchups)
   {
     std::for_each(accum_matchups_.begin(), accum_matchups_.end(), [this](auto& scores)
     {
@@ -69,7 +69,7 @@ class Player
   double played_ = 0;
 
   absl::flat_hash_map<int, std::pair<int, double>> accum_matchups_;
-  std::vector<std::tuple<int, int>> matchups_;
+  std::vector<std::tuple<int, double>> matchups_;
 
   int opponent_start_ = 0;
   int opponents_ = 0;
