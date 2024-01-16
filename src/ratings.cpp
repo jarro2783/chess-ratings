@@ -74,7 +74,7 @@ double RatingsCalc::calculate_errors()
   return std::accumulate(abs.begin(), abs.end(), 0.0);
 }
 
-void RatingsCalc::calculate_errors(size_t start, size_t end)
+void RatingsCalc::calculate_errors(int start, int end)
 {
   for (auto p : std::views::iota(start, end))
   [[likely]]
@@ -85,7 +85,7 @@ void RatingsCalc::calculate_errors(size_t start, size_t end)
     // add the expected score against each opponent
     auto first = game_indexes_[p];
     auto last = game_indexes_[p+1];
-    for (size_t j = first; j != last; ++j)
+    for (int j = first; j != last; ++j)
     [[likely]]
     {
       //const auto& opponent = opponent_info_[j];
@@ -151,8 +151,8 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
       return v > next_index;
     });
 
-    size_t begin = iter - accum_games.begin();
-    size_t end = job_end - accum_games.begin();
+    int begin = iter - accum_games.begin();
+    int end = job_end - accum_games.begin();
 
     std::cout << begin << "--" << end << std::endl;
     jobs.push_back([this, begin, end]() {
