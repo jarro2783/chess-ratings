@@ -74,7 +74,7 @@ double RatingsCalc::calculate_errors()
   return std::accumulate(abs.begin(), abs.end(), 0.0);
 }
 
-void RatingsCalc::calculate_errors(int start, int end)
+void RatingsCalc::calculate_errors(size_t start, size_t end)
 {
   for (auto p : std::views::iota(start, end))
   {
@@ -147,8 +147,8 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
       return v > next_index;
     });
 
-    int begin = iter - accum_games.begin();
-    int end = job_end - accum_games.begin();
+    size_t begin = iter - accum_games.begin();
+    size_t end = job_end - accum_games.begin();
 
     std::cout << begin << "--" << end << std::endl;
     jobs.push_back([this, begin, end]() {
