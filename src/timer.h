@@ -8,6 +8,11 @@ class Timer
     start_ = clock_type::now();
   }
 
+  auto stop()
+  {
+    return clock_type::now() - start_;
+  }
+
   void stop(const char* prefix)
   {
     auto end = clock_type::now();

@@ -45,7 +45,7 @@ void RatingsCalc::find_ratings()
       std::cout << "Total error = " << e << std::endl;
     }
 
-    if (e < 0.1)
+    if (e < 0.5)
     {
       break;
     }
@@ -56,6 +56,11 @@ void RatingsCalc::find_ratings()
   }
 
   std::cout << "Done ratings in " << i << " iterations" << std::endl;
+
+  std::cout << "Job times" << std::endl;
+  std::ranges::for_each(job_times_, [](auto t) {
+    std::cout << t << std::endl;
+  });
 }
 
 void RatingsCalc::adjust_ratings_driver(int i, double e)
@@ -71,7 +76,7 @@ double RatingsCalc::calculate_errors()
   waiter_.run_and_wait(threads_);
 
   auto abs = std::views::transform(errors_, [](auto e) { return std::fabs(e); });
-  return std::accumulate(abs.begin(), abs.end(), 0.0);
+  return std::accumulate(abs.begin(), abs.end(), 0.0d);
 }
 
 void RatingsCalc::calculate_errors(int start, int end)
@@ -85,7 +90,7 @@ void RatingsCalc::calculate_errors(int start, int end)
     // add the expected score against each opponent
     auto first = game_indexes_[p];
     auto last = game_indexes_[p+1];
-    for (int j = first; j != last; ++j)
+    for (auto j = first; j != last; ++j)
     [[likely]]
     {
       //const auto& opponent = opponent_info_[j];
@@ -102,12 +107,12 @@ void RatingsCalc::calculate_errors(int start, int end)
 std::vector<ThreadPool::ThreadJob> RatingsCalc::create_adjust_calculation()
 {
   std::vector<ThreadPool::ThreadJob> jobs;
-  auto cpus = threads_.pool_size();
   double players = player_info_.size();
-  double ratio = players / cpus;
+  auto job_count = 8;
+  double ratio = players / job_count;
 
   size_t begin = 0;
-  for (int i = 1; i != cpus+1; ++i)
+  for (int i = 1; i < job_count+1; ++i)
   {
     size_t end = ratio * i;
     std::cout << "Adjust ratings: " << begin << "--" << end << std::endl;
@@ -135,15 +140,16 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
   auto total_games = accum_games.back();
 
   std::vector<ThreadPool::ThreadJob> jobs;
-  int cpus = threads_.pool_size();
-  std::cout << cpus << " jobs" << std::endl;
+  int job_count = player_info_.size() / 10000;
+  std::cout << job_count << " jobs" << std::endl;
 
   auto iter = accum_games.begin();
   auto end_iter = accum_games.end();
 
-  double interval = static_cast<double>(total_games) / cpus;
+  double interval = static_cast<double>(total_games) / job_count;
 
-  for (int i = 0; i != cpus; ++i)
+  job_times_.resize(job_count);
+  for (int i = 0; i != job_count; ++i)
   {
     double next_index = interval * (i+1);
 
@@ -155,8 +161,12 @@ std::vector<ThreadPool::ThreadJob> RatingsCalc::create_error_calculation()
     int end = job_end - accum_games.begin();
 
     std::cout << begin << "--" << end << std::endl;
-    jobs.push_back([this, begin, end]() {
+    jobs.push_back([this, begin, end, i] () {
+      Timer timer;
+      timer.start();
       calculate_errors(begin, end);
+      auto elapsed = timer.stop();
+      job_times_[i] = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
     });
 
     iter = job_end;

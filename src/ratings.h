@@ -45,6 +45,8 @@ class RatingsCalc
   ThreadPoolWaiter waiter_;
   ThreadPoolWaiter adjust_waiter_;
 
+  std::vector<std::chrono::microseconds> job_times_;
+
   void process_line(std::string_view line);
   double calculate_errors();
   void adjust_ratings_driver(int i, double e);
