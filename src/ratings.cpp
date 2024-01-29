@@ -79,6 +79,13 @@ double RatingsCalc::calculate_errors()
   return std::accumulate(abs.begin(), abs.end(), 0.0);
 }
 
+void do_error_calc(double rating, int j, double& score, const std::vector<int>& opp_index, const std::vector<int>& opp_played, const std::vector<double>& ratings)
+{
+    auto denom = (rating + ratings[opp_index[j]]);
+    auto numerator = opp_played[j] * rating;
+    score += numerator / denom;
+}
+
 void RatingsCalc::calculate_errors(int start, int end)
 {
   for (auto p : std::views::iota(start, end))
@@ -90,13 +97,22 @@ void RatingsCalc::calculate_errors(int start, int end)
     // add the expected score against each opponent
     auto first = game_indexes_[p];
     auto last = game_indexes_[p+1];
-    for (auto j = first; j != last; ++j)
+    auto distance = last - first;
+    distance &= 0xFFFFFFFE;
+
+    auto end = first + distance;
+
+    auto j = first;
+    for (j = first; j < end; j += 2)
     [[likely]]
     {
-      //const auto& opponent = opponent_info_[j];
-      auto denom = (rating + ratings_[opp_index_[j]]);
-      auto numerator = opp_played_[j] * rating;
-      score += numerator / denom;
+      do_error_calc(rating, j, score, opp_index_, opp_played_, ratings_);
+      do_error_calc(rating, j+1, score, opp_index_, opp_played_, ratings_);
+    }
+
+    if (j != last)
+    {
+      do_error_calc(rating, j, score, opp_index_, opp_played_, ratings_);
     }
 
     double e = player.score() - score;
