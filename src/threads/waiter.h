@@ -12,17 +12,6 @@ class ThreadPoolWaiter
   void set_jobs(const std::vector<ThreadPool::ThreadJob>& jobs)
   {
     jobs_ = jobs;
-  #if 0
-    for (auto& job: jobs)
-    {
-      auto runner = [this, job]() {
-        job();
-        running_ -= 1;
-      };
-
-      wrapped_jobs_.push_back(runner);
-    }
-    #endif
   }
 
   void run_and_wait(ThreadPool& pool)
